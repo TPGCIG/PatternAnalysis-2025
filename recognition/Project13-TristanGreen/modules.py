@@ -40,3 +40,52 @@ def load_base_model(
         model.config.decoder_start_token_id = model.config.pad_token_id
     return model
 
+
+def attach_lora(model, r: int = 8, alpha: int = 16, dropout: float = 0.05, target_modules: Optional[List[str]] = None):
+    if not PEFT_AVAILABLE:
+        raise RuntimeError("peft not installed. `pip install peft` to use LoRA.")
+    if target_modules is None:
+        target_modules = ["q", "k", "v", "o"]
+    cfg = LoraConfig(
+        r=r, lora_alpha=alpha, lora_dropout=dropout,
+        target_modules=target_modules, bias="none", task_type="SEQ_2_SEQ_LM",
+    )
+    return get_peft_model(model, cfg)
+
+
+@torch.no_grad()
+def generate(
+    model,
+    tokenizer,
+    inputs: List[str],
+    max_input_len: int = 1024,
+    max_new_tokens: int = 256,
+    num_beams: int = 4,
+    no_repeat_ngram_size: int = 3,
+    length_penalty: float = 1.0,
+    add_prefix: bool = True,
+    prefix_text: str = "summarize: ",
+    device: Optional[str] = None,
+) -> List[str]:
+    model.eval()
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    batch = [(prefix_text + x) if add_prefix else x for x in inputs]
+    enc = tokenizer(
+        batch,
+        max_length=max_input_len,
+        truncation=True,
+        padding=True,
+        return_tensors="pt",
+    ).to(device)
+
+    out = model.generate(
+        **enc,
+        max_new_tokens=max_new_tokens,
+        num_beams=num_beams,
+        no_repeat_ngram_size=no_repeat_ngram_size,
+        length_penalty=length_penalty,
+        early_stopping=True,
+    )
+    return tokenizer.batch_decode(out, skip_special_tokens=True)
