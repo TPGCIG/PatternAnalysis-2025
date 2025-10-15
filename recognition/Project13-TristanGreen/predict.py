@@ -40,6 +40,7 @@ def main():
     ap.add_argument("--adapter_dir", required=True, help="Path to saved LoRA adapters")
     ap.add_argument("--base_model", default="google/flan-t5-base")
     ap.add_argument("--text", default=None, help="Single input string to summarize")
+    ap.add_argument("--jsonl", default=None, help="Path to JSONL with an input column")
     ap.add_argument("--input_col", default="report")
     ap.add_argument("--out_path", default="predictions.jsonl")
     ap.add_argument("--batch_size", type=int, default=8)
@@ -58,6 +59,14 @@ def main():
         print(outs[0])
         return
 
+    # file mode
+    if args.jsonl is None:
+        raise SystemExit("Provide --text or --jsonl")
+    rows = []
+    with open(args.jsonl, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                rows.append(json.loads(line))
 
     inputs = [r.get(args.input_col, "") for r in rows]
     preds = []
