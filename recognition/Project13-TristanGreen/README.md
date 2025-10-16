@@ -1,4 +1,5 @@
 
+> Brain-T5: A lightweight model fine-tuned for simplifying medical jargon using FLAN-T5 and LoRA.
 
 
 
