@@ -1,8 +1,26 @@
+<h3 align="center">
+    <p>Brain-T5: A lightweight model fine-tuned for simplifying medical jargon using FLAN-T5 and LoRA.</p>
+</h3>
+ 
+## Project Motivation:
 
-> Brain-T5: A lightweight model fine-tuned for simplifying medical jargon using FLAN-T5 and LoRA.
+## Demo Examples:
+
+## Features:
+
+## Installation:
+
+## Training Usage:
+
+## Chat Usage:
+
+## Training Resuts:
 
 
 
+
+
+README structure heavily inspired by HF transformers page.
 
 
 Train e1: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 150454/150454 [5:20:10<00:00,  7.83batch/s, loss=1.3393, sps=7.8] 
