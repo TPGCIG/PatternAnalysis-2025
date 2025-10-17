@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="assets/images/braint5.png" alt="Logo" />
+</p>
+
+
 <h3 align="center">
     <p>Brain-T5: A lightweight model fine-tuned for simplifying medical jargon using FLAN-T5 and LoRA.</p>
 </h3>
