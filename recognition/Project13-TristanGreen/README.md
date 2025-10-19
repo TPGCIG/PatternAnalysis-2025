@@ -9,6 +9,15 @@
 
 Brain-T5 is a lightweight language model designed to translate technical clinical and biomedical text into layperson summaries so non-experts can understand them. Built on top of FLAN-T5 using LoRA fine-tuning, it is deployable on consumer grade GPUs and acts to assist research into medical fields from outer disciplines and acts as an assistant for patient communication. This repository includes full training, evaluation and inference pipelines, from dataset intake to an interactive chat mode.
 
+## Table of Contents
+- [Project Motivation](#project-motivation)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Training Usage](#training-usage)
+- [Chat Usage](#chat-usage)
+- [Training Results](#training-results)
+
 ## Project Motivation:
 Between medical professionals and the average person or researcher in an outer discipline, the scope of what "standard language" is does not cross over very well. Jargon is used excessively inside the medical world which may cause outer folk to struggle to understand basic summaries, research abstracts/results, or diagnostic reports. The only tools that exist that fit this use case effectively are large language models such as OpenAI's GPT-3+, Google's Gemini, Anthropic's Sonnet and others, however they cannot be localised easily on consumer grade hardware and use inputted conversational data to train their models. Many medical institutions may not want their data to cross borders, making a local option preferrable.
 
@@ -37,9 +46,6 @@ Brain-T5 is a major step toward bridging the gap between the average person and 
 ├── runs/             # LoRA adapters & metrics saved here
 └── README.md
 ```
-
-## Demo Examples:
-
 
 ## Installation:
 
@@ -134,15 +140,13 @@ python predict.py --adapter_dir runs/<name> --jsonl dev.jsonl --input_col report
 - If ROUGE is flat, your data columns are probably wrong. Print a few samples.
 - If `runs/<name>` is empty, you never beat your previous best—check learning rate and dataset.
 
-
-
 ## Chat Usage:
 
 
 
 ## Training Resuts:
 
-[epoch 1] train_loss=1.3393
+[epoch 1] train_loss=1.3393<br>
 [epoch 1] ROUGE: {'rouge1': 0.639758940949706, 'rouge2': 0.4262667182806449, 'rougeL': 0.5793631565756041, 'rougeLsum': 0.5795225947980385}
 
 
