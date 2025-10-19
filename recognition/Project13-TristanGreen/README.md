@@ -56,9 +56,6 @@ pip install -r requirements.txt
 
 You're now ready to go!
 
-## Training Usage:
-The user has complete control over the training parameters, model used (in this circumstance, the user may want to train on `flan-t5-small`, `flan-t5-base`, `flan-t5-large`, `flan-t5-xl`, and `flan-t5-xxl`, however the default is set to `flan-t5-base` as it nets reliable results on consumer grade GPUs.
-
 ## Training Usage
 
 ### 1) Prepare data
