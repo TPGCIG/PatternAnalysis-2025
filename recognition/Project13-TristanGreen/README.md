@@ -142,7 +142,19 @@ python predict.py --adapter_dir runs/<name> --jsonl dev.jsonl --input_col report
 
 ## Chat Usage:
 
+You: “CT angiography shows ~70% stenosis of the proximal LAD; plan for PCI if symptoms persist despite maximal medical therapy.”
+Model: “There’s a notable blockage in a main heart artery. The team suggests a procedure if medicines don’t help enough.”
 
+You: “MRI brain: multiple periventricular T2/FLAIR hyperintensities suggestive of demyelination; correlate clinically for MS.”
+Model: “Scans show several spots in brain areas often linked to nerve coating problems. Doctors will compare this with symptoms.”
+
+You: “HbA1c 9.2% despite metformin 1g BID; initiate basal insulin 10u qHS and titrate to fasting 5–7 mmol/L.”
+Model: “Blood sugar control isn’t good with current meds. Start a nightly insulin dose and adjust to get morning sugars into a better range.”
+
+You: “Echo: LVEF 35%, global hypokinesis, mild MR; optimize GDMT—ACEi/ARB, beta-blocker, MRA.”
+Model: “Heart pumping is weaker than normal with some valve leak. Use standard heart medicines to improve function.”
+
+> This sample was trained on 3 epochs over a 16 hour period, better results can come as result of longer training and adjustable parameters. The rouge scores for this training are seen in [Training Usage](#training-usage)
 
 ## Training Resuts:
 
