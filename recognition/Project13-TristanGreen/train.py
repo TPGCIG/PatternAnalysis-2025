@@ -105,8 +105,6 @@ def main():
                    help="Limit validation examples during dev")
     p.add_argument("--eval_batch_size", type=int, default=8,
                    help="Batch size used for generation during eval")
-    p.add_argument("--eval_every_steps", type=int, default=None,
-                   help="If set, run eval every N optimizer steps (in addition to end-of-epoch)")
 
     args = p.parse_args()
 
@@ -208,11 +206,6 @@ def main():
                 optim.zero_grad(set_to_none=True)
                 optimizer_steps += 1
 
-                # mid-epoch eval hook
-                if (args.eval_every_steps is not None) and (optimizer_steps % args.eval_every_steps == 0):
-                    scores = run_eval(model, tokenizer, val_loader, device, args, rouge_metric)
-                    if scores is not None:
-                        print(f"[step {optimizer_steps}] ROUGE: {scores}")
 
             # live progress
             avg_loss = running / max(1, (step_in_epoch // args.accum))
@@ -238,7 +231,7 @@ def main():
                 tokenizer.save_pretrained(args.output_dir)
                 with open(os.path.join(args.output_dir, "metrics.json"), "w") as f:
                     json.dump({"best_rougeLsum": best_rougeLsum, "epoch": epoch, "scores": scores}, f, indent=2)
-                print(f"[epoch {epoch}] âœ“ saved best adapters to {args.output_dir}")
+                print(f"[epoch {epoch}] saved best adapters to {args.output_dir}")
 
     log_file.close()
     print("done.")
