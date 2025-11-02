@@ -68,62 +68,55 @@ You're now ready to go!
 
 ## Training Usage
 
-### 1) Prepare data
-Supports **JSONL**, **CSV**, or the **BioLaySumm HF dataset**.
-- **JSONL** (one object per line) — default columns: `report` (input), `summary` (target)
-  ```json
-  {"report": "CT scan shows...", "summary": "The scan shows..."}
-  {"report": "Patient presents with...", "summary": "In plain English..."}
-  ```
-- **CSV** (has headers): `report,summary,...`
 
-### 2) Quick-start commands
-Pick ONE of these, then iterate.
-
-**A. Local JSONL**
-```bash
-python train.py   --train_source local_jsonl --train_path train.jsonl   --val_source   local_jsonl --val_path   val.jsonl   --output_dir runs/flan_t5_base_lora_myexp   --batch_size 1 --accum 16 --epochs 3 --lr 2e-4 --fp16
-```
-
-**B. Local CSV**
-```bash
-python train.py   --train_source local_csv --train_path train.csv   --val_source   local_csv --val_path   val.csv   --input_col report --target_col summary   --output_dir runs/flan_t5_base_lora_csv   --batch_size 1 --accum 16 --epochs 3 --lr 2e-4 --fp16
-```
-
-**C. Hugging Face (BioLaySumm)**
+### 1) Quick-start commands
+**Hugging Face (BioLaySumm)**
 > Requires `pip install datasets`. Uses the built-in dataset loader.  
-> `--train_path`/`--val_path` are **split names** (e.g., `train`, `validation`, `test`).
+```bash
+python train.py --output_dir [dir_name]
+```
+
+### 2) For fine-grain training and control over parameters
 ```bash
 python train.py   --train_source hf --train_path train   --val_source   hf --val_path validation   --output_dir runs/flan_t5_base_lora_biolaysumm   --batch_size 1 --accum 16 --epochs 3 --lr 2e-4 --fp16
 ```
 
 ### 3) What the script actually does
-- Builds tokenizer + datasets via `make_datasets(...)` with your chosen **source kind** (`local_jsonl`, `local_csv`, or `hf`) and columns (`--input_col`, `--target_col`).  
+- Builds tokenizer + datasets via `make_datasets(...)` with `hf` and columns (`--input_col`, `--target_col`).  
 - Attaches **LoRA** adapters to FLAN‑T5 and trains with AdamW + cosine schedule.  
-- Evaluates with **ROUGE** at epoch end (and optionally mid‑epoch with `--eval_every_steps`).  
-- Saves best adapters + tokenizer to `--output_dir`, along with `metrics.json` and `train_log.csv`.
-If you don’t see these files, you didn’t train anything meaningful.
+- Evaluates with **ROUGE** at epoch. 
+- Saves best adapters + tokenizer to `--output_dir`, along with `metrics.json`, `train_log.csv` and graphs for `loss` and `ROUGE` scores per-epoch.
 
 ### 4) Arguments
-- **Data**: `--train_source/--train_path`, `--val_source/--val_path`, `--input_col`, `--target_col`
-- **Sequence lengths**: `--max_input_len`, `--max_target_len` (truncate aggressively if OOM)
 - **Batching**: `--batch_size`, `--accum` (effective batch = batch_size × accum)
 - **Optim**: `--lr`, `--weight_decay`, `--warmup_steps`, `--clip`
 - **LoRA**: `--lora_r`, `--lora_alpha`, `--lora_dropout`
-- **Eval**: `--eval_batch_size`, `--eval_max_new_tokens`, `--eval_beams`, `--eval_every_steps`
+- **Eval**: `--eval_batch_size`, `--eval_max_new_tokens`, `--eval_beams`
 - **Misc**: `--epochs`, `--seed`, `--fp16`
 
 ### 5) Outputs (verify or it didn’t happen)
 Inside your `--output_dir`:
 ```
 runs/<name>/
-├── adapter_config.json
-├── adapter_model.bin        # LoRA weights
-├── tokenizer.json
-├── metrics.json             # best ROUGE
-└── train_log.csv            # step-wise loss
+├── adapter_config.json          # LoRA adapter setup (rank, alpha, target modules)
+├── adapter_model.safetensors    # Actual trained LoRA weight deltas
+├── hardware.json                # GPU name, VRAM, and compute capability info
+├── history_val.csv              # Validation ROUGE scores per epoch (for plotting)
+├── metrics_test.json            # Final held-out test ROUGE scores
+├── metrics_val.json             # Best validation epoch and its ROUGE metrics
+├── special_tokens_map.json      # Token IDs for <pad>, <eos>, etc. (auto from tokenizer)
+├── README.md                    # Auto-generated PEFT model card (safe to delete)
+├── tokenizer.json               # Full tokenizer vocab + merges
+├── tokenizer_config.json        # Tokenizer settings (truncation, padding, etc.)
+├── time.json                    # Total training time and epochs elapsed
+├── rouge_val_curve.png          # Line plot — validation ROUGE vs epoch
+├── rouge_test_bar.png           # Bar chart — test ROUGE metrics
+├── loss_curve.png               # Smoothed training loss vs steps curve
+├── params.json                  # Total vs trainable parameter counts (LoRA ratio)
+├── metrics.json                 # Duplicate or summary of best ROUGE metrics
+└── train_log.csv                # Step-wise loss log for generating loss_curve
 ```
-You should also see console logs like:
+You should also see console logs during training like:
 ```
 [epoch 1] train_loss=...
 [epoch 1] ROUGE: {'rouge1': ..., 'rouge2': ..., 'rougeL': ..., 'rougeLsum': ...}
@@ -140,25 +133,25 @@ python predict.py --adapter_dir runs/<name> --jsonl dev.jsonl --input_col report
 ```
 
 ### 7) General usage tips 
-- If CUDA OOM: lower `--max_input_len`/`--max_target_len`, increase `--accum`, or drop `--fp16` if your GPU cannot handle the defaults.
+- If CUDA OOM: increase `--accum`, or drop `--fp16` if your GPU cannot handle the defaults.
 - If ROUGE is flat, your data columns are probably wrong. Print a few samples.
 - If `runs/<name>` is empty, you never beat your previous best—check learning rate and dataset.
 
 ## Chat Usage:
 
 ### Examples
-> This sample was trained on 3 epochs over a 16 hour period, better results can come as result of longer training and adjustable parameters. The rouge scores for this training are seen in [Training Usage](#training-usage)
+> This sample was trained on 7 epochs over a 39 hour period, better results can come as result of longer training and adjustable parameters. The rouge scores for this training are seen in [Training Usage](#training-usage)
 
-You: “CT angiography shows ~70% stenosis of the proximal LAD; plan for PCI if symptoms persist despite maximal medical therapy.”
+You: “CT angiography shows ~70% stenosis of the proximal LAD; plan for PCI if symptoms persist despite maximal medical therapy.” <br>
 Model: “There’s a notable blockage in a main heart artery. The team suggests a procedure if medicines don’t help enough.”
 
-You: “MRI brain: multiple periventricular T2/FLAIR hyperintensities suggestive of demyelination; correlate clinically for MS.”
+You: “MRI brain: multiple periventricular T2/FLAIR hyperintensities suggestive of demyelination; correlate clinically for MS.”<br>
 Model: “Scans show several spots in brain areas often linked to nerve coating problems. Doctors will compare this with symptoms.”
 
-You: “HbA1c 9.2% despite metformin 1g BID; initiate basal insulin 10u qHS and titrate to fasting 5–7 mmol/L.”
+You: “HbA1c 9.2% despite metformin 1g BID; initiate basal insulin 10u qHS and titrate to fasting 5–7 mmol/L.”<br>
 Model: “Blood sugar control isn’t good with current meds. Start a nightly insulin dose and adjust to get morning sugars into a better range.”
 
-You: “Echo: LVEF 35%, global hypokinesis, mild MR; optimize GDMT—ACEi/ARB, beta-blocker, MRA.”
+You: “Echo: LVEF 35%, global hypokinesis, mild MR; optimize GDMT—ACEi/ARB, beta-blocker, MRA.”<br>
 Model: “Heart pumping is weaker than normal with some valve leak. Use standard lung medicines to improve function.”
 
 ### Error Analysis
@@ -169,11 +162,54 @@ These limitations, while problematic, can be overcome via training on consumer g
 
 
 ## Training Resuts:
+Training was performed on the BioLaySumm 2025 - LaymanRRG opensource track, using FLAN-T5-Base with LoRA fine-tuning for 3 epochs.
+The model was trained with AdamW + cosine schedule, batch size 1 × gradient accumulation 16 (effective batch = 16), and evaluated with ROUGE-1/2/L/Lsum per epoch.
 
-After the first epoch, the following results were achieved:
+1. Training Loss (full run)
+<img src="assets/images/loss_curve_full.png" width="600"/>
 
-[epoch 1] train_loss=1.3393<br>
-[epoch 1] ROUGE: {'rouge1': 0.639758940949706, 'rouge2': 0.4262667182806449, 'rougeL': 0.5793631565756041, 'rougeLsum': 0.5795225947980385}
+This plot shows the training loss vs optimizer steps over the entire fine-tuning run.
+The curve steadily declines and stabilises, showing smooth convergence without major oscillation — indicating that:
+
+* The learning rate and warm-up schedule were well-tuned.
+
+* Gradient accumulation was effective in maintaining numerical stability under mixed-precision (--fp16) training.
+
+* No gradient explosions or plateaus occurred (loss range ≈ 1.9 → 1.2).
+
+2. Training Loss (medium zoom)
+<img src="assets/images/loss_curve_med.png" width="600"/>
+
+This is a zoomed-in view of the mid-training regime, showing finer granularity of step-wise noise.
+Loss fluctuations at small scale are expected from single-sample batches, but the general slope continues downward, confirming consistent optimization rather than overfitting spikes.
+
+3. Validation ROUGE Progress (full run)
+<img src="assets/images/rouge_val_curve_full.png" width="600"/>
+
+This figure tracks ROUGE-1, ROUGE-2, ROUGE-L, and ROUGE-Lsum per epoch.
+
+Interpretation:
+
+* ROUGE-1 and ROUGE-L steadily improve and plateau by the third epoch, showing that lexical and long-span coherence both increased.
+
+* ROUGE-2 remains noisier, which is typical for summarization tasks where exact bigram matches are less frequent.
+
+* The consistent upward trajectory across all four metrics indicates learning stability and effective LoRA adaptation.
+
+4. Validation ROUGE (medium zoom)
+<img src="assets/images/rouge_val_curve_med.png" width="600"/>
+
+This mid-range view highlights the epoch-to-epoch change more clearly:
+
+* Rapid early gains in the first epoch.
+
+* Smaller, diminishing returns after epoch 2, suggesting convergence.
+
+*  No regression in ROUGE-Lsum,  evidence that the checkpoint selected (highest ROUGE-Lsum) indeed corresponds to the global optimum seen during training.
+
+Overall, Brain-T5 demonstrates reliable convergence and solid generalisation across validation and test splits.
+The model maintains smooth training dynamics and rising ROUGE performance without evidence of overfitting or divergence — validating the correctness of the pipeline in train.py and the dataset tokenization logic in dataset.py
+
 
 # The FLAN-T5 Model
 ## What is T5?
@@ -209,7 +245,10 @@ FLAN-T5 (Fine-tuned LAnguate Net T5) is an enhanced version of the original [T5]
 During training, FLAN-T5 is exposed to a massive number of tasks that are all formatted as natural language instructions (e.g. "Answer the following question: ..."). This training paradigm significantly improves the model's ability to:
 
 1. **Follow instructions** since it is built on user prompts instead of general text data.
-2, **Generalise** since the training prompts may map a new, prompted task out for the model to answer which can help it understand how to answer newer tasks it previously couldnt.
+2. **Generalise** since the training prompts may map a new, prompted task out for the model to answer which can help it understand how to answer newer tasks it previously couldnt.
+3. **Transfer knowledge efficiently** because FLAN-T5 was trained on diverse, instruction-formatted datasets, it can quickly adapt to unseen downstream tasks (like layperson medical summarization) with relatively few gradient updates.
+4. **Reduce hallucination and bias** as tuning encourages models to anchor their responses to explicit prompts, producing more deterministic and context-aware outputs compared to raw pretrained T5 models.
 
+In essence, FLAN-T5 represents a major leap in making large-scale text-to-text models usable out of the box for a wide range of natural language tasks. Its combination of instructional alignment, broad coverage, and generalization ability makes it a strong backbone for fine-tuning in specialized domains, such as Brain-T5, where the goal is translating complex biomedical text into accessible language without requiring massive compute resources.
 
 
