@@ -74,6 +74,8 @@ python train.py   --train_source hf --train_path train   --val_source   hf --val
 
 ### 3) What the script actually does
 - Builds tokenizer + datasets via `make_datasets(...)` with `hf` and columns (`--input_col`, `--target_col`).  
+- Performs an **80/10/10 train–validation–test split** automatically when `--self_split` is used, ensuring there is no data leakage between training and evaluation sets.
+
 - Attaches **LoRA** adapters to FLAN‑T5 and trains with AdamW + cosine schedule.  
 - Evaluates with **ROUGE** at epoch. 
 - Saves best adapters + tokenizer to `--output_dir`, along with `metrics.json`, `train_log.csv` and graphs for `loss` and `ROUGE` scores per-epoch.
@@ -83,6 +85,10 @@ python train.py   --train_source hf --train_path train   --val_source   hf --val
 - **Optim**: `--lr`, `--weight_decay`, `--warmup_steps`, `--clip`
 - **LoRA**: `--lora_r`, `--lora_alpha`, `--lora_dropout`
 - **Eval**: `--eval_batch_size`, `--eval_max_new_tokens`, `--eval_beams`
+- **Data Splitting**:
+  - `--self_split` automatically performs an **80/10/10** train–validation–test division when a pre-defined test split is unavailable.  
+  - Custom paths can be provided via `--train_path`, `--val_path`, and `--test_path` to manually control dataset partitions.  
+  - Prevents **data leakage** by ensuring all splits are loaded and cached independently.
 - **Misc**: `--epochs`, `--seed`, `--fp16`
 
 ### 5) Outputs
@@ -114,7 +120,7 @@ You should also see console logs during training like:
 
 ### 6) Use the trained adapters
 
-We **highly recommend** using `chat.py` to talk to the model you've trained:
+We **highly recommend** using `chat.py` to talk to the model you've trained (heavily inspired by OpenAI's ChatGPT):
 
 ```bash
 python chat.py --model_dir runs/<name>
@@ -289,6 +295,9 @@ In train.py, datasets are loaded via `make_datasets(...)` which:
 
 A custom Seq2SeqCollatorFast batches and pads sequences efficiently, ensuring label alignment and correct masking for loss computation.
 This design minimises preprocessing overhead and keeps I/O throughput optimal even on smaller consumer GPUs.
+
+Users can also manually override dataset splits by specifying `--train_path`, `--val_path`, and `--test_path` when providing local data sources.  
+This makes the training pipeline flexible for custom or extended datasets while maintaining strict isolation between splits.
 
 ### Why BioLaySumm?
 
