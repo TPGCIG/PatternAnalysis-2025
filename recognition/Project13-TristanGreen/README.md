@@ -9,18 +9,6 @@
 
 Brain-T5 is a lightweight language model designed to translate technical clinical and biomedical text into layperson summaries so non-experts can understand them. Built on top of FLAN-T5 using LoRA fine-tuning, it is deployable on consumer grade GPUs and acts to assist research into medical fields from outer disciplines and acts as an assistant for patient communication. This repository includes full training, evaluation and inference pipelines, from dataset intake to an interactive chat mode.
 
-## Table of Contents
-- Brain-T5
-  - [Project Motivation](#project-motivation)
-  - [Features](#features)
-  - [Project Structure](#project-structure)
-  - [Installation](#installation)
-  - [Training Usage](#training-usage)
-  - [Chat Usage](#chat-usage)
-  - [Training Results](#training-results)
-- The FLAN-T5 Model
-  - [What is FLAN-T5?](#what-is-flan-t5)
-  - [Why not other models?](#why-not-other-models)
 
 ## Project Motivation:
 Between medical professionals and the average person or researcher in an outer discipline, the scope of what "standard language" is does not cross over very well. Jargon is used excessively inside the medical world which may cause outer folk to struggle to understand basic summaries, research abstracts/results, or diagnostic reports. The only tools that exist that fit this use case effectively are large language models such as OpenAI's GPT-3+, Google's Gemini, Anthropic's Sonnet and others, however they cannot be localised easily on consumer grade hardware and use inputted conversational data to train their models. Many medical institutions may not want their data to cross borders, making a local option preferrable.
@@ -71,7 +59,6 @@ You're now ready to go!
 
 ### 1) Quick-start commands
 **Hugging Face (BioLaySumm)**
-> Requires `pip install datasets`. Uses the built-in dataset loader.  
 ```bash
 python train.py --output_dir [dir_name]
 ```
@@ -118,7 +105,6 @@ runs/<name>/
 ```
 You should also see console logs during training like:
 ```
-[epoch 1] train_loss=...
 [epoch 1] ROUGE: {'rouge1': ..., 'rouge2': ..., 'rougeL': ..., 'rougeLsum': ...}
 ```
 
@@ -160,10 +146,62 @@ The model consistently drops critical figures (example 1: ~70%, example 3: 9.2%)
 The model also hallucinates (rarely though) (example 4: *use standard lung medicines* in heart context) and can forget the context loosely. This is obviously problematic but in downstream fine-tuning, the model should be explicitly over-attentive to the context as mistakes of this nature can cause problems in the medical field.  
 These limitations, while problematic, can be overcome via training on consumer grade hardware. Also, under proper supervision from a medical professional, these bugs can be quickly identified and flagged.
 
+## Evaluation Metrics
+### ROUGE Evaluation
+Brain-T5’s summarization quality is evaluated using **ROUGE** (Recall-Oriented Understudy for Gisting Evaluation), the standard metric for text summarization. <br>
+ROUGE measures the degree of overlap between the model’s generated summaries and the ground-truth human-written ones, capturing how well the model reproduces key phrases and sentence structure from the reference.
+
+### How It Works
+
+In `train.py`, the evaluation loop computes ROUGE using:
+
+```py
+scores = rouge_metric.compute(predictions=preds, references=refs, use_stemmer=True)
+```
+
+This returns four main sub-metrics:
+
+* ROUGE-1 – overlap of unigrams (single words).
+
+* ROUGE-2 – overlap of bigrams (two-word sequences).
+
+* ROUGE-L – measures the Longest Common Subsequence (LCS) between prediction and reference.
+
+* ROUGE-Lsum – a sentence-level variant of ROUGE-L, emphasizing structural similarity in multi-sentence outputs.
+
+Each score ranges from 0 to 1, where higher is better. ROUGE can be computed in terms of precision, recall, and F1, but this project uses the F1-form returned by the Hugging Face `evaluate` package, balancing both correctness and completeness.
+
+### Why It Matters
+
+* ROUGE-1 reflects general lexical similarity — whether the model uses similar vocabulary.
+
+* ROUGE-2 indicates phrase-level fluency — capturing short-range coherence.
+
+* ROUGE-L and ROUGE-Lsum capture long-range structure and sentence organization — essential for readability and factual flow in lay summaries.
+
+In practice, ROUGE-Lsum serves as the primary checkpoint criterion in train.py:
+
+```py
+if rougeLsum > best_rougeLsum:
+    model.save_pretrained(args.output_dir)
+```
+meaning the “best” model is whichever epoch achieves the highest ROUGE-Lsum score across validation.
+
+### Interpretation
+
+A strong model shows:
+
+* Gradual increases in ROUGE-1/2/L/Lsum across epochs.
+
+* Consistent correlation between lower loss and higher ROUGE scores.
+
+* Minimal gap between validation and test ROUGE, indicating good generalization.
 
 ## Training Resuts:
 Training was performed on the BioLaySumm 2025 - LaymanRRG opensource track, using FLAN-T5-Base with LoRA fine-tuning for 3 epochs.
 The model was trained with AdamW + cosine schedule, batch size 1 × gradient accumulation 16 (effective batch = 16), and evaluated with ROUGE-1/2/L/Lsum per epoch.
+
+The full run was ran over the entire dataset (150,000 datapoints) per-epoch, while the medium zoom was from a much smaller dataset (2000 datapoints) but with a higer epoch count. 
 
 1. Training Loss (full run)
 <img src="assets/images/loss_curve_full.png" width="600"/>
@@ -173,9 +211,9 @@ The curve steadily declines and stabilises, showing smooth convergence without m
 
 * The learning rate and warm-up schedule were well-tuned.
 
-* Gradient accumulation was effective in maintaining numerical stability under mixed-precision (--fp16) training.
+* Gradient accumulation was effective in maintaining numerical stability under training.
 
-* No gradient explosions or plateaus occurred (loss range ≈ 1.9 → 1.2).
+* No gradient explosions or plateaus occurred.
 
 2. Training Loss (medium zoom)
 <img src="assets/images/loss_curve_med.png" width="600"/>
@@ -208,7 +246,7 @@ This mid-range view highlights the epoch-to-epoch change more clearly:
 *  No regression in ROUGE-Lsum,  evidence that the checkpoint selected (highest ROUGE-Lsum) indeed corresponds to the global optimum seen during training.
 
 Overall, Brain-T5 demonstrates reliable convergence and solid generalisation across validation and test splits.
-The model maintains smooth training dynamics and rising ROUGE performance without evidence of overfitting or divergence — validating the correctness of the pipeline in train.py and the dataset tokenization logic in dataset.py
+The model maintains smooth training dynamics and rising ROUGE performance without evidence of overfitting or divergence — validating the correctness of the pipeline in train.py and the dataset tokenization logic in dataset.py. Furthermore, doing full-passes over the dataset converges to a higher set of ROUGE values, making longer passes - less epochs preferrable over smaller passes - more epochs.
 
 ## Dataset
 Brain-T5 is trained on the BioLaySumm 2025 – LaymanRRG (Open-Source Track) dataset, hosted on Hugging Face under the identifier [BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track](https://huggingface.co/datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track).
@@ -220,9 +258,8 @@ Each entry contains a technical radiology report paired with a human-written lay
 
 Each example includes two main fields:
 
-Column	Description
-`radiology_report`:	The source input - detailed, jargon-heavy text extracted from radiology or clinical notes.
-`layman_report`:	The target output - a simplified explanation written for a general audience.
+* `radiology_report`:	The source input - detailed, jargon-heavy text extracted from radiology or clinical notes.
+* `layman_report`:	The target output - a simplified explanation written for a general audience.
 
 During preprocessing, dataset.py automatically prefixes each input with "summarize: " for FLAN-T5 instruction consistency, tokenizes both columns using the model’s tokenizer, and pads sequences for batch training.
 
@@ -230,11 +267,11 @@ During preprocessing, dataset.py automatically prefixes each input with "summari
 
 In train.py, datasets are loaded via `make_datasets(...)` which:
 
-Fetches all splits (train, validation, test) directly from Hugging Face.
+* Fetches all splits (train, validation, test) directly from Hugging Face.
 
-Optionally performs an 80/10/10 self-split when the open-source test set lacks reference summaries (`--self_split` flag).
+* Optionally performs an 80/10/10 self-split when the open-source test set lacks reference summaries (`--self_split` flag).
 
-Encodes all samples into token IDs (input_ids, attention_mask, labels) ready for PyTorch training.
+* Encodes all samples into token IDs (input_ids, attention_mask, labels) ready for PyTorch training.
 
 A custom Seq2SeqCollatorFast batches and pads sequences efficiently, ensuring label alignment and correct masking for loss computation.
 This design minimises preprocessing overhead and keeps I/O throughput optimal even on smaller consumer GPUs.
@@ -243,11 +280,11 @@ This design minimises preprocessing overhead and keeps I/O throughput optimal ev
 
 BioLaySumm provides:
 
-Authentic biomedical phrasing, exposing the model to realistic clinical structure and terminology.
+* Authentic biomedical phrasing, exposing the model to realistic clinical structure and terminology.
 
-Human-validated lay summaries, ensuring stylistic and semantic accuracy for non-expert readability.
+* Human-validated lay summaries, ensuring stylistic and semantic accuracy for non-expert readability.
 
-Consistent formatting, ideal for instruction-based models like FLAN-T5 that thrive on aligned input/output pairs.
+* Consistent formatting, ideal for instruction-based models like FLAN-T5 that thrive on aligned input/output pairs.
 
 Together, these qualities make BioLaySumm the ideal foundation for training Brain-T5 to bridge the gap between clinical documentation and human-understandable summaries.
 
@@ -259,7 +296,6 @@ T5 (Text-to-Text Transfer Transformer) is a transformer model built completely o
 <img src='assets/images/t5architecture.jpg'>
 The super summarised explanation on how the model works (provided by OpenAI's ChatGPT) is:
 
-> This is the quoted text from ChatGPT.
 
 1. Tokenise → Embed → + Position. Words become vectors, add position info so the model knows order.
 2. Encoder (repeated N×):
@@ -274,8 +310,6 @@ The super summarised explanation on how the model works (provided by OpenAI's Ch
    - Feed-forward and Add & Norm again.
 
 5. Linear → Softmax: turn the decoder’s last vector into a probability over the vocabulary; pick the next token; loop 4–5 until done.
-
-> End quote.
 
 <img src='assets/images/t5simple.png'>
 
