@@ -311,9 +311,6 @@ def main():
     p.add_argument("--val_split",   default="validation")
     p.add_argument("--test_split",  default="test")
 
-    # seq lengths + prefix
-    p.add_argument("--prefix", default="summarize: ")
-
     # training
     p.add_argument("--epochs",       type=int, default=5)
     p.add_argument("--lr",           type=float, default=2e-4)
@@ -364,7 +361,7 @@ def main():
         test_split=args.test_split,
         max_input_len=1024,
         max_target_len=256,
-        prefix_text=args.prefix,
+        prefix_text="summarise",
         self_split=args.self_split,
         self_split_val=args.self_split_val,
         self_split_test=args.self_split_test,

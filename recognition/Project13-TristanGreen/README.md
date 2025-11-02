@@ -88,13 +88,15 @@ python train.py --output_dir runs/flan_t5_base_lora_biolaysumm   --batch_size 1 
 - Saves best adapters + tokenizer to `--output_dir`, along with `metrics.json`, `train_log.csv` and graphs for `loss` and `ROUGE` scores per-epoch.
 
 ### 4) Arguments
+
 - **Batching**: `--batch_size`, `--accum` (effective batch = batch_size × accum)
 - **Optim**: `--lr`, `--weight_decay`, `--warmup_steps`, `--clip`
 - **LoRA**: `--lora_r`, `--lora_alpha`, `--lora_dropout`
 - **Eval**: `--eval_batch_size`, `--eval_max_new_tokens`, `--eval_beams`
+- **Limiters**: `--max_train_samples`, `--max_eval_samples`, `--max_test_samples` 
 - **Data Splitting**:
-  - `--self_split` automatically performs an **80/10/10** train–validation–test division when a pre-defined test split is unavailable.  
-  - Custom paths can be provided via `--train_path`, `--val_path`, and `--test_path` to manually control dataset partitions.  
+  - `--self_split_#` automatically performs an **80/10/10** train–validation–test division when a pre-defined test split is unavailable.
+  -  `--train_split`, `--val_split`, `--test_split` can be used to manually split the dataset.
   - Prevents **data leakage** by ensuring all splits are loaded and cached independently.
 - **Misc**: `--epochs`, `--seed`, `--fp16`
 
