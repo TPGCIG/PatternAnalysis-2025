@@ -1,4 +1,18 @@
-#modules.py
+# ------------------------------------------------------------
+#  Model Utilities for Brain-T5
+#  -----------------------------------------------------------
+#  Description:
+#     Provides helper functions for loading base models and attaching
+#     LoRA adapters to target layers of FLAN-T5.
+#
+#  Key Functions:
+#     - load_base_model(): loads pretrained T5/FLAN-T5 with dtype control.
+#     - attach_lora(): injects trainable low-rank adapters for fine-tuning.
+#
+#  Notes:
+#     - Uses PEFT (Parameter-Efficient Fine-Tuning) via Hugging Face.
+#     - Keeps original model frozen except LoRA-injected parameters.
+# ------------------------------------------------------------
 """
 General design ideas are that the datasets are defensively imported and are not
 taken for granted since this is public software. All imports have guardrails.

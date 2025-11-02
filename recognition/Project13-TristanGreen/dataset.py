@@ -1,5 +1,19 @@
-
-# dataset.py — locked to BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track
+# ------------------------------------------------------------
+#  Dataset Loader and Preprocessing for Brain-T5
+#  -----------------------------------------------------------
+#  Description:
+#     Handles dataset intake and preprocessing for FLAN-T5 fine-tuning.
+#     Supports Hugging Face (BioLaySumm) datasets, CSV, or JSONL inputs.
+#
+#  Key Components:
+#     - make_datasets(): loads and tokenizes splits (train/val/test).
+#     - Seq2SeqCollatorFast: dynamic padding & label masking for T5.
+#
+#  Notes:
+#     - Automatically prefixes "summarize: " to each input.
+#     - Pads to model’s max token length.
+#     - Masks <pad> tokens in labels with -100 for CrossEntropyLoss.
+# ------------------------------------------------------------
 from __future__ import annotations
 from typing import Optional, List, Dict
 import torch

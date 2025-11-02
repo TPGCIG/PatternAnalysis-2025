@@ -1,4 +1,19 @@
-# predict.py
+# ------------------------------------------------------------
+#  Prediction and Inference for Brain-T5
+#  -----------------------------------------------------------
+#  Description:
+#     Generates summaries from fine-tuned LoRA adapters.
+#     Supports both single-text (--text) and batch (--jsonl) modes.
+#
+#  Key Functions:
+#     - load_model(): loads base + LoRA adapter for inference.
+#     - generate_batch(): batched generation with beam search.
+#
+#  Notes:
+#     - Outputs JSONL with 'prediction' field appended to each input.
+#     - Uses max_new_tokens and num_beams for generation control.
+# ------------------------------------------------------------
+
 import os, argparse, json
 from typing import List
 import torch

@@ -1,3 +1,16 @@
+# ------------------------------------------------------------
+#  Interactive CLI for Brain-T5 (Chat Mode)
+#  -----------------------------------------------------------
+#  Description:
+#     Lightweight interface for real-time summarization queries.
+#     Runs inference loop over the fine-tuned LoRA FLAN-T5 model.
+#
+#  Usage:
+#     $ python chat.py --model_dir runs/flan_t5_base_lora_biolaysumm
+#
+#  Notes:
+#     - Press Enter to re-prompt; type 'exit' or 'quit' to stop.
+# ------------------------------------------------------------
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from peft import PeftModel

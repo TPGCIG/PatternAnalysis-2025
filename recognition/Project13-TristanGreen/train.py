@@ -1,4 +1,21 @@
-# train.py — locked to BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track
+# ------------------------------------------------------------
+#  Brain-T5: FLAN-T5 + LoRA Fine-Tuning Pipeline
+#  -----------------------------------------------------------
+#  Description:
+#     Main training script for Brain-T5. Handles dataset loading,
+#     LoRA adapter attachment, training loop, logging, and evaluation.
+#
+#  Key Functions:
+#     - run_eval(): computes ROUGE scores on validation/test splits.
+#     - log_val_rouge_row(): logs per-epoch ROUGE metrics to CSV.
+#     - plot_loss_curve(), plot_val_rouge_curve(): generate plots.
+#
+#  Notes:
+#     - Uses AdamW + cosine schedule.
+#     - Gradient accumulation supported via --accum.
+#     - Mixed precision enabled via torch.amp.
+#     - Best model checkpoint chosen by highest ROUGE-Lsum.
+# ------------------------------------------------------------
 import os, json, math, argparse, random, time, uuid, csv
 from typing import Optional
 import numpy as np
