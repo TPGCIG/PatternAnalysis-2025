@@ -1,25 +1,28 @@
-# ------------------------------------------------------------
-#  Prediction and Inference for Brain-T5
-#  -----------------------------------------------------------
-#  Description:
-#     Generates summaries from fine-tuned LoRA adapters.
-#     Supports both single-text (--text) and batch (--jsonl) modes.
-#
-#  Key Functions:
-#     - load_model(): loads base + LoRA adapter for inference.
-#     - generate_batch(): batched generation with beam search.
-#
-#  Notes:
-#     - Outputs JSONL with 'prediction' field appended to each input.
-#     - Uses max_new_tokens and num_beams for generation control.
-# ------------------------------------------------------------
+"""
+------------------------------------------------------------
+ Prediction and Inference for Brain-T5
+ -----------------------------------------------------------
+ Description:
+    Generates summaries from fine-tuned LoRA adapters.
+    Supports both single-text (--text) and batch (--jsonl) modes.
 
+ Key Functions:
+    - load_model(): loads base + LoRA adapter for inference.
+    - generate_batch(): batched generation with beam search.
+
+ Notes:
+    - Outputs JSONL with 'prediction' field appended to each input.
+    - Uses max_new_tokens and num_beams for generation control.
+------------------------------------------------------------
+"""
 import os, argparse, json
 from typing import List
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from peft import PeftModel
 
+# Load tokenizer from adapter_dir (ensures identical preproc as training), attach LoRA onto base.
+# dtype=float16 only when CUDA+--fp16; always move model to device and set eval().
 def load_model(adapter_dir: str, base_model: str, fp16: bool):
     tok = AutoTokenizer.from_pretrained(adapter_dir)
     dtype = torch.float16 if (fp16 and torch.cuda.is_available()) else torch.float32
@@ -35,6 +38,7 @@ def chunk(lst: List[str], n: int):
     for i in range(0, len(lst), n):
         yield lst[i:i+n]
 
+# Generate a batch with beam search; always prefix with instruction to match training distribution.
 def generate_batch(model, tok, device, texts: List[str], max_in: int, max_new: int, beams: int, prefix: str):
     batch = [prefix + t for t in texts]
     enc = tok(batch, return_tensors="pt", truncation=True, max_length=max_in, padding=True).to(device)
@@ -65,6 +69,12 @@ def main():
     ap.add_argument("--prefix", default="summarize: ")
     ap.add_argument("--fp16", action="store_true")
     args = ap.parse_args()
+
+    # Modes:
+    #  --text "..."         -> print single summary to stdout
+    #  --jsonl file.jsonl   -> stream predictions and write to --out_path
+    #  --input_col selects field in JSONL to summarize (default: 'report')
+
 
     tok, model, device = load_model(args.adapter_dir, args.base_model, args.fp16)
 

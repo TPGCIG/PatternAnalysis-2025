@@ -1,19 +1,21 @@
-# ------------------------------------------------------------
-#  Dataset Loader and Preprocessing for Brain-T5
-#  -----------------------------------------------------------
-#  Description:
-#     Handles dataset intake and preprocessing for FLAN-T5 fine-tuning.
-#     Supports Hugging Face (BioLaySumm) datasets, CSV, or JSONL inputs.
-#
-#  Key Components:
-#     - make_datasets(): loads and tokenizes splits (train/val/test).
-#     - Seq2SeqCollatorFast: dynamic padding & label masking for T5.
-#
-#  Notes:
-#     - Automatically prefixes "summarize: " to each input.
-#     - Pads to model’s max token length.
-#     - Masks <pad> tokens in labels with -100 for CrossEntropyLoss.
-# ------------------------------------------------------------
+"""
+------------------------------------------------------------
+ Dataset Loader and Preprocessing for Brain-T5
+ -----------------------------------------------------------
+ Description:
+    Handles dataset intake and preprocessing for FLAN-T5 fine-tuning.
+    Supports Hugging Face (BioLaySumm) datasets, CSV, or JSONL inputs.
+
+ Key Components:
+    - make_datasets(): loads and tokenizes splits (train/val/test).
+    - Seq2SeqCollatorFast: dynamic padding & label masking for T5.
+
+ Notes:
+    - Automatically prefixes "summarize: " to each input.
+    - Pads to model’s max token length.
+    - Masks <pad> tokens in labels with -100 for CrossEntropyLoss.
+------------------------------------------------------------
+"""
 from __future__ import annotations
 from typing import Optional, List, Dict
 import torch
@@ -25,6 +27,8 @@ DATASET_ID = "BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track"
 INPUT_COL  = "radiology_report"
 TARGET_COL = "layman_report"
 
+# Collator: batch pad inputs/labels and map pad tokens in labels to -100 (ignored by CE loss).
+# pad_to_multiple_of lets you round sequence lengths (e.g., to 8/16/32) for Tensor Core efficiency.
 class Seq2SeqCollatorFast:
     def __init__(self, tokenizer, label_pad_token_id=-100, pad_to_multiple_of=None):
         self.tok = tokenizer
@@ -41,6 +45,7 @@ class Seq2SeqCollatorFast:
         return torch.nn.functional.pad(tensor, (0, add), value=pad_value)
 
     def __call__(self, feats: List[Dict[str, torch.Tensor]]):
+        # IMPORTANT: convert tokenizer pad tokens in labels to -100 so loss ignores padded positions.
         ids  = [f["input_ids"]      if isinstance(f["input_ids"],      torch.Tensor) else torch.tensor(f["input_ids"])      for f in feats]
         am   = [f["attention_mask"] if isinstance(f["attention_mask"], torch.Tensor) else torch.tensor(f["attention_mask"]) for f in feats]
         labs = [f["labels"]         if isinstance(f["labels"],         torch.Tensor) else torch.tensor(f["labels"])         for f in feats]
@@ -56,7 +61,8 @@ class Seq2SeqCollatorFast:
         labs = self._maybe_pad_to_multiple(labs, self.label_pad_token_id)
         return {"input_ids": ids, "attention_mask": am, "labels": labs}
 
-
+# Build tokenizer + HF datasets with optional self-split (80/10/10).
+# Ensures input instruction prefix and truncation to max lengths.
 def make_datasets(
     tokenizer_name: str = "google/flan-t5-base",
     train_split: str = "train",
@@ -80,6 +86,7 @@ def make_datasets(
 
     from datasets import DatasetDict
 
+    # Vectorize one batch: add instruction prefix, tokenize src/tgt independently, attach 'labels'.
     if self_split:
         base = ds["train"].train_test_split(test_size=self_split_test, seed=self_split_seed)
         train_part = base["train"]
@@ -98,6 +105,7 @@ def make_datasets(
         if INPUT_COL not in cols or TARGET_COL not in cols:
             raise KeyError(f"Expected columns '{INPUT_COL}', '{TARGET_COL}' in split '{split}', found {cols}")
 
+    # Vectorize one batch: add instruction prefix, tokenize src/tgt independently, attach 'labels'.
     def encode_batch(batch):
         srcs = [prefix_text + s for s in batch[INPUT_COL]]
         enc = tok(srcs, max_length=max_input_len, truncation=True)

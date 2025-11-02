@@ -1,21 +1,19 @@
-# ------------------------------------------------------------
-#  Model Utilities for Brain-T5
-#  -----------------------------------------------------------
-#  Description:
-#     Provides helper functions for loading base models and attaching
-#     LoRA adapters to target layers of FLAN-T5.
-#
-#  Key Functions:
-#     - load_base_model(): loads pretrained T5/FLAN-T5 with dtype control.
-#     - attach_lora(): injects trainable low-rank adapters for fine-tuning.
-#
-#  Notes:
-#     - Uses PEFT (Parameter-Efficient Fine-Tuning) via Hugging Face.
-#     - Keeps original model frozen except LoRA-injected parameters.
-# ------------------------------------------------------------
 """
-General design ideas are that the datasets are defensively imported and are not
-taken for granted since this is public software. All imports have guardrails.
+------------------------------------------------------------
+ Model Utilities for Brain-T5
+ -----------------------------------------------------------
+ Description:
+    Provides helper functions for loading base models and attaching
+    LoRA adapters to target layers of FLAN-T5.
+
+ Key Functions:
+    - load_base_model(): loads pretrained T5/FLAN-T5 with dtype control.
+    - attach_lora(): injects trainable low-rank adapters for fine-tuning.
+
+ Notes:
+    - Uses PEFT (Parameter-Efficient Fine-Tuning) via Hugging Face.
+    - Keeps original model frozen except LoRA-injected parameters.
+------------------------------------------------------------
 """
 from __future__ import annotations
 from typing import Optional, Dict, Any, List
@@ -32,14 +30,15 @@ try:
 except Exception:
     PEFT_AVAILABLE = False
 
-
+# Use fast tokenizer; default pad_token from eos_token if missing (required by T5 decoding).
 def get_tokenizer(name: str = "google/flan-t5-base"):
     tok = AutoTokenizer.from_pretrained(name, use_fast=True)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
     return tok
 
-
+# Load FLAN-T5 with dtype/device_map options.
+# Ensure decoder_start_token_id is set so generation starts from a valid token.
 def load_base_model(
     name: str = "google/flan-t5-base",
     dtype: Optional[torch.dtype] = torch.float16,
@@ -54,7 +53,8 @@ def load_base_model(
         model.config.decoder_start_token_id = model.config.pad_token_id
     return model
 
-
+# Inject LoRA on attention projections (q/k/v/o). Bias=none keeps adapter minimal.
+# r/alpha/dropout control rank, scaling, and regularization of the adapters.
 def attach_lora(model, r: int = 8, alpha: int = 16, dropout: float = 0.05, target_modules: Optional[List[str]] = None):
     if not PEFT_AVAILABLE:
         raise RuntimeError("peft not installed. `pip install peft` to use LoRA.")
@@ -66,7 +66,10 @@ def attach_lora(model, r: int = 8, alpha: int = 16, dropout: float = 0.05, targe
     )
     return get_peft_model(model, cfg)
 
-
+# Convenience generation wrapper (batched):
+#  - Applies optional "summarize: " prefix.
+#  - Pads/truncates, moves to device, decodes without special tokens.
+#  - Beam search defaults tuned for readability over speed.
 @torch.no_grad()
 def generate(
     model,

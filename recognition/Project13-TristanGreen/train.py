@@ -1,21 +1,23 @@
-# ------------------------------------------------------------
-#  Brain-T5: FLAN-T5 + LoRA Fine-Tuning Pipeline
-#  -----------------------------------------------------------
-#  Description:
-#     Main training script for Brain-T5. Handles dataset loading,
-#     LoRA adapter attachment, training loop, logging, and evaluation.
-#
-#  Key Functions:
-#     - run_eval(): computes ROUGE scores on validation/test splits.
-#     - log_val_rouge_row(): logs per-epoch ROUGE metrics to CSV.
-#     - plot_loss_curve(), plot_val_rouge_curve(): generate plots.
-#
-#  Notes:
-#     - Uses AdamW + cosine schedule.
-#     - Gradient accumulation supported via --accum.
-#     - Mixed precision enabled via torch.amp.
-#     - Best model checkpoint chosen by highest ROUGE-Lsum.
-# ------------------------------------------------------------
+"""
+------------------------------------------------------------
+ Brain-T5: FLAN-T5 + LoRA Fine-Tuning Pipeline
+ -----------------------------------------------------------
+ Description:
+    Main training script for Brain-T5. Handles dataset loading,
+    LoRA adapter attachment, training loop, logging, and evaluation.
+
+ Key Functions:
+    - run_eval(): computes ROUGE scores on validation/test splits.
+    - log_val_rouge_row(): logs per-epoch ROUGE metrics to CSV.
+    - plot_loss_curve(), plot_val_rouge_curve(): generate plots.
+
+ Notes:
+    - Uses AdamW + cosine schedule.
+    - Gradient accumulation supported via --accum.
+    - Mixed precision enabled via torch.amp.
+    - Best model checkpoint chosen by highest ROUGE-Lsum.
+------------------------------------------------------------
+"""
 import os, json, math, argparse, random, time, uuid, csv
 from typing import Optional
 import numpy as np
@@ -50,6 +52,11 @@ def set_seed(seed: int = 1337):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
+# Eval loop: generate summaries for a dataloader and compute ROUGE.
+# Notes:
+#  - We re-enable use_cache for fast generation.
+#  - Convert label pad (-100) back to tokenizer.pad_token_id before decoding refs.
+#  - no_repeat_ngram_size=3 reduces trivial repetition.
 def run_eval(model, tokenizer, loader: Optional[DataLoader], device, args, rouge_metric):
     if loader is None:
         return None
@@ -61,6 +68,7 @@ def run_eval(model, tokenizer, loader: Optional[DataLoader], device, args, rouge
     with torch.inference_mode():
         for vb in tqdm(loader, desc="Eval", unit="batch", dynamic_ncols=True):
             vb = {k: v.to(device) for k, v in vb.items()}
+            # Beam search generation for evaluation (deterministic-ish)
             gen_out = model.generate(
                 input_ids=vb["input_ids"],
                 attention_mask=vb["attention_mask"],
@@ -87,6 +95,8 @@ def run_eval(model, tokenizer, loader: Optional[DataLoader], device, args, rouge
 
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4())[:8])
 
+# Persist per-epoch validation ROUGE to CSV for plotting and auditing.
+# If multiple runs append to same file, we keep last row per epoch when plotting.
 def log_val_rouge_row(run_dir, epoch, scores):
     """
     Append one row per epoch:
@@ -113,6 +123,8 @@ def log_val_rouge_row(run_dir, epoch, scores):
 # Plotting helpers
 # -----------------------
 
+# Plot validation ROUGE vs epoch.
+# Robust to restarts: we select the *latest* row per epoch (by timestamp) to avoid stale re-runs.
 def plot_val_rouge_curve(run_dir):
     """
     Plot Validation ROUGE vs Epoch (robust):
@@ -340,7 +352,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     set_seed(args.seed)
 
-    # Start fresh logs (truncate; do NOT pre-write mismatched headers)
+    # Fresh logs for this run (truncate old content so headers/steps align with current run).
     open(os.path.join(args.output_dir, "train_log.csv"), "w").close()
     open(os.path.join(args.output_dir, "history_val.csv"), "w").close()
 
@@ -399,7 +411,10 @@ def main():
     log_file, log_writer = csv_logger(os.path.join(args.output_dir, "train_log.csv"))
     global_step = 0
 
-    # Optim + sched
+    # Optimizer & schedule:
+    #  - AdamW with weight decay.
+    #  - Cosine schedule with ~6% warmup (capped by --warmup_steps).
+    #  - GradScaler enabled only when --fp16 on CUDA.
     optim = AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     total_steps = math.ceil(len(train_loader) / args.accum) * args.epochs
     warmup = min(args.warmup_steps, int(0.06 * total_steps))
@@ -442,6 +457,7 @@ def main():
             avg_loss = running / max(1, (step_in_epoch // args.accum))
             elapsed = time.time() - start_time
             sps = (step_in_epoch * args.batch_size) / max(1e-6, elapsed)
+            # Live progress: smoothed loss and samples/sec for quick sanity checks.
             pbar.set_postfix({"loss": f"{avg_loss:.4f}", "sps": f"{sps:.1f}"})
 
         print(f"[epoch {epoch}] train_loss={avg_loss:.4f}")
