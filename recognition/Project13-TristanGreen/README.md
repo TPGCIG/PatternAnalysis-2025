@@ -56,6 +56,9 @@ pip install -r requirements.txt
 
 You're now ready to go!
 
+### Dependencies
+
+
 ## Training Usages
 
 ### 1) Quick-start commands
@@ -110,6 +113,15 @@ You should also see console logs during training like:
 ```
 
 ### 6) Use the trained adapters
+
+We **highly recommend** using `chat.py` to talk to the model you've trained:
+
+```bash
+python chat.py --model_dir runs/<name>
+```
+
+`predict.py` is also available:
+
 Single text:
 ```bash
 python predict.py --adapter_dir runs/<name> --text "Put clinical text here" --fp16
@@ -118,6 +130,7 @@ Batch JSONL:
 ```bash
 python predict.py --adapter_dir runs/<name> --jsonl dev.jsonl --input_col report --out_path predictions.jsonl
 ```
+
 
 ### 7) General usage tips 
 - If CUDA OOM: increase `--accum`, or drop `--fp16` if your GPU cannot handle the defaults.
