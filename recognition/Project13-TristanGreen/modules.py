@@ -28,12 +28,12 @@ def get_tokenizer(name: str = "google/flan-t5-base"):
 
 def load_base_model(
     name: str = "google/flan-t5-base",
-    dtype: Optional[torch.dtype] = torch.float16,  # <-- use 'dtype', not 'torch_dtype'
+    dtype: Optional[torch.dtype] = torch.float16,
     device_map: Optional[str] = None,
 ):
     model = AutoModelForSeq2SeqLM.from_pretrained(
         name,
-        dtype=dtype,           # <-- fixes deprecation
+        dtype=dtype,
         device_map=device_map,
     )
     if getattr(model.config, "decoder_start_token_id", None) is None:
