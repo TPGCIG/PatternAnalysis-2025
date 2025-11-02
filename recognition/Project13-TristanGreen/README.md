@@ -41,12 +41,16 @@ Brain-T5 is a major step toward bridging the gap between the average person and 
 
 ## Installation:
 
+We recommend using a virtual environment for your install. See [here](https://www.w3schools.com/python/python_virtualenv.asp) for a tutorial in Windows/MacOS/Linux for making a virtual environment.
+
 ```
 # First, clone the repository and at the same time, checkout the topic-recognition branch.
 git clone -b topic-recognition https://github.com/TPGCIG/PatternAnalysis-2025/
 
 # Change directory to the Brain-T5 one.
 cd PatternAnalysis-2025/recognition/Project13-TristanGreen
+
+# Here is where you will access your virtual environment - check the linked tutorial for your OS. It is not required though.
 
 # Install the dependencies.
 pip install -r requirements.txt
@@ -62,6 +66,9 @@ You're now ready to go!
 ## Training Usages
 
 ### 1) Quick-start commands
+
+
+
 **Hugging Face (BioLaySumm)**
 ```bash
 python train.py --output_dir [dir_name]
@@ -69,7 +76,7 @@ python train.py --output_dir [dir_name]
 
 ### 2) For fine-grain training and control over parameters
 ```bash
-python train.py   --train_source hf --train_path train   --val_source   hf --val_path validation   --output_dir runs/flan_t5_base_lora_biolaysumm   --batch_size 1 --accum 16 --epochs 3 --lr 2e-4 --fp16
+python train.py --output_dir runs/flan_t5_base_lora_biolaysumm   --batch_size 1 --accum 16 --epochs 3 --lr 2e-4
 ```
 
 ### 3) What the script actually does
