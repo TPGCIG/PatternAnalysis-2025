@@ -46,16 +46,17 @@ Brain-T5 is a major step toward bridging the gap between the average person and 
 git clone -b topic-recognition https://github.com/TPGCIG/PatternAnalysis-2025/
 
 # Change directory to the Brain-T5 one.
-cd recognition/Project13-TristanGreen
+cd PatternAnalysis-2025/recognition/Project13-TristanGreen
 
 # Install the dependencies.
 pip install -r requirements.txt
 ```
 
+`torch` is not included in this install. You must go to [https://pytorch.org/get-started/locally](https://pytorch.org/get-started/locally). This project uses PyTorch 2.8.0 and this project **strongly recommends** the use of CUDA 12.6.
+
 You're now ready to go!
 
-## Training Usage
-
+## Training Usages
 
 ### 1) Quick-start commands
 **Hugging Face (BioLaySumm)**
