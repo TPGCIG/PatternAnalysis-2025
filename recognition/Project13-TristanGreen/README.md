@@ -94,7 +94,7 @@ python train.py   --train_source hf --train_path train   --val_source   hf --val
 - **Eval**: `--eval_batch_size`, `--eval_max_new_tokens`, `--eval_beams`
 - **Misc**: `--epochs`, `--seed`, `--fp16`
 
-### 5) Outputs (verify or it didn’t happen)
+### 5) Outputs
 Inside your `--output_dir`:
 ```
 runs/<name>/
@@ -209,6 +209,47 @@ This mid-range view highlights the epoch-to-epoch change more clearly:
 
 Overall, Brain-T5 demonstrates reliable convergence and solid generalisation across validation and test splits.
 The model maintains smooth training dynamics and rising ROUGE performance without evidence of overfitting or divergence — validating the correctness of the pipeline in train.py and the dataset tokenization logic in dataset.py
+
+## Dataset
+Brain-T5 is trained on the BioLaySumm 2025 – LaymanRRG (Open-Source Track) dataset, hosted on Hugging Face under the identifier [BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track](https://huggingface.co/datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track).
+
+This dataset is specifically curated for the layperson summarisation of biomedical text.
+Each entry contains a technical radiology report paired with a human-written lay summary, enabling fine-tuning of models for domain translation between clinical and plain language.
+
+### Structure
+
+Each example includes two main fields:
+
+Column	Description
+`radiology_report`:	The source input - detailed, jargon-heavy text extracted from radiology or clinical notes.
+`layman_report`:	The target output - a simplified explanation written for a general audience.
+
+During preprocessing, dataset.py automatically prefixes each input with "summarize: " for FLAN-T5 instruction consistency, tokenizes both columns using the model’s tokenizer, and pads sequences for batch training.
+
+### Usage in Training
+
+In train.py, datasets are loaded via `make_datasets(...)` which:
+
+Fetches all splits (train, validation, test) directly from Hugging Face.
+
+Optionally performs an 80/10/10 self-split when the open-source test set lacks reference summaries (`--self_split` flag).
+
+Encodes all samples into token IDs (input_ids, attention_mask, labels) ready for PyTorch training.
+
+A custom Seq2SeqCollatorFast batches and pads sequences efficiently, ensuring label alignment and correct masking for loss computation.
+This design minimises preprocessing overhead and keeps I/O throughput optimal even on smaller consumer GPUs.
+
+### Why BioLaySumm?
+
+BioLaySumm provides:
+
+Authentic biomedical phrasing, exposing the model to realistic clinical structure and terminology.
+
+Human-validated lay summaries, ensuring stylistic and semantic accuracy for non-expert readability.
+
+Consistent formatting, ideal for instruction-based models like FLAN-T5 that thrive on aligned input/output pairs.
+
+Together, these qualities make BioLaySumm the ideal foundation for training Brain-T5 to bridge the gap between clinical documentation and human-understandable summaries.
 
 
 # The FLAN-T5 Model
