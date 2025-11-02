@@ -60,16 +60,21 @@ pip install -r requirements.txt
 
 You're now ready to go!
 
-### Dependencies
-
+### Dependencies (Named as they are installable via pip)
+* transformers 4.57.0
+* peft 0.17.1
+* evaluate 0.4.6
+* datasets 4.1.1
+* tqdm 4.67.1
+* numpy 2.2.5
+* matplotlib 3.10.5
+* absl-py 2.3.1
+* nltk 3.9.2
+* rouge_score 0.1.2
 
 ## Training Usages
 
 ### 1) Quick-start commands
-
-
-
-**Hugging Face (BioLaySumm)**
 ```bash
 python train.py --output_dir [dir_name]
 ```
@@ -80,7 +85,7 @@ python train.py --output_dir runs/flan_t5_base_lora_biolaysumm   --batch_size 1 
 ```
 
 ### 3) What the script actually does
-- Builds tokenizer + datasets via `make_datasets(...)` with `hf` and columns (`--input_col`, `--target_col`).  
+- Builds tokenizer + datasets via `make_datasets(...)` with `hf`.  
 - Performs an **80/10/10 train–validation–test split** automatically when `--self_split` is used, ensuring there is no data leakage between training and evaluation sets.
 
 - Attaches **LoRA** adapters to FLAN‑T5 and trains with AdamW + cosine schedule.  
@@ -277,6 +282,25 @@ This mid-range view highlights the epoch-to-epoch change more clearly:
 Overall, Brain-T5 demonstrates reliable convergence and solid generalisation across validation and test splits.
 The model maintains smooth training dynamics and rising ROUGE performance without evidence of overfitting or divergence — validating the correctness of the pipeline in train.py and the dataset tokenization logic in dataset.py. Furthermore, doing full-passes over the dataset converges to a higher set of ROUGE values, making longer passes - less epochs preferrable over smaller passes - more epochs.
 
+### Pre-processing
+
+We keep the input text *as written* (no lowercasing, stop‑word removal or punctuation stripping) and rely on the FLAN‑T5 tokenizer to handle normalization. Concretely:
+
+- **Instruction prefix:** each input is prepended with a task prompt (e.g., `summarize: `) so the format matches FLAN‑T5’s instruction‑tuning.  
+- **Tokenization:** Hugging Face’s fast tokenizer for FLAN‑T5 (SentencePiece) encodes inputs/targets; the pad token is set to `<eos>` when missing (T5 requirement). Inputs are truncated/padded to **1024** tokens; targets to **256** tokens.  
+- **Label masking:** target padding positions are set to **-100** so they are ignored by the cross‑entropy loss during training.  
+- **Decoding safety:** we ensure `decoder_start_token_id` is defined so generation starts from a valid token.
+
+### Train/Validation/Test splits — justification
+
+- **Official splits when available.** If the dataset provides `train/validation/test`, we honor them exactly.  
+- **Self‑split when the test lacks references.** With `--self_split`, we create an **80/10/10** split *from the training partition only* to avoid leakage. A fixed random seed makes the partition reproducible.  
+- **Why 80/10/10 Split?** It gives the model the bulk of data for parameter estimation (80%), a sufficient **validation** slice (10%) for model selection/early‑stopping by ROUGE‑Lsum, and a **held‑out test** slice (10%) that is touched **once** at the end for unbiased reporting. Using different balances (e.g. 33/33/34) starves the component on training which requires the most compute, the training. If most of the dataset is committed to evaluation, the model starves and severely underperforms. The 20% used for ROUGE/Eval are valuable for evaluation, but evaluation does not dictate the quality of the model like training does, it only tests it.
+- **Learning rate of 2e-4** - Conservative base LR for **LoRA‑only** updates on T5‑base. Stable with cosine decay and accumulation on small batches.
+- **Weight_decay of 0.01** - Light L2 to regularise LoRA adapters (AdamW). Keeps updates from drifting without fighting low‑rank adaptation.
+- **lora_r=8, lora_alpha=16, lora_dropout=0.05**  Balanced adapter capacity vs stability. The **effective update scale** is roughly `lr × (alpha / r)` (= 2× lr here). `r=8` is a common sweet spot for T5‑base; small dropout helps generalisation without fighting instruction‑tuned priors.
+
+
 ## Dataset
 Brain-T5 is trained on the BioLaySumm 2025 – LaymanRRG (Open-Source Track) dataset, hosted on Hugging Face under the identifier [BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track](https://huggingface.co/datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track).
 
@@ -291,22 +315,6 @@ Each example includes two main fields:
 * `layman_report`:	The target output - a simplified explanation written for a general audience.
 
 During preprocessing, dataset.py automatically prefixes each input with "summarize: " for FLAN-T5 instruction consistency, tokenizes both columns using the model’s tokenizer, and pads sequences for batch training.
-
-### Usage in Training
-
-In train.py, datasets are loaded via `make_datasets(...)` which:
-
-* Fetches all splits (train, validation, test) directly from Hugging Face.
-
-* Optionally performs an 80/10/10 self-split when the open-source test set lacks reference summaries (`--self_split` flag).
-
-* Encodes all samples into token IDs (input_ids, attention_mask, labels) ready for PyTorch training.
-
-A custom Seq2SeqCollatorFast batches and pads sequences efficiently, ensuring label alignment and correct masking for loss computation.
-This design minimises preprocessing overhead and keeps I/O throughput optimal even on smaller consumer GPUs.
-
-Users can also manually override dataset splits by specifying `--train_path`, `--val_path`, and `--test_path` when providing local data sources.  
-This makes the training pipeline flexible for custom or extended datasets while maintaining strict isolation between splits.
 
 ### Why BioLaySumm?
 
